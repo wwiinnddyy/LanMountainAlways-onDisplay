@@ -1,0 +1,87 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="$(JaliumSourceRoot)src\managed\Jalium.UI.Build\build\Jalium.UI.Build.props"
+          Condition="'$(UseJaliumSourceReferences)' == 'true' and Exists('$(JaliumSourceRoot)src\managed\Jalium.UI.Build\build\Jalium.UI.Build.props')" />
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>LanMountainAlwaysOnDisplay</RootNamespace>
+    <AssemblyName>LanMountainAlwaysOnDisplay</AssemblyName>
+    <JaliumNativePackRid Condition="'$(JaliumNativePackRid)' == ''">win-x64</JaliumNativePackRid>
+    <UseJaliumPackageNativeRuntime Condition="'$(UseJaliumPackageNativeRuntime)' == '' and '$(UseJaliumSourceReferences)' == 'true'">true</UseJaliumPackageNativeRuntime>
+    <EnableJalxamlCodeGeneration>false</EnableJalxamlCodeGeneration>
+    <EnableJalxamlRazorTransform>false</EnableJalxamlRazorTransform>
+    <DefaultItemExcludes>$(DefaultItemExcludes);obj\**\*;bin\**\*</DefaultItemExcludes>
+    <_JalxamlTasksPath Condition="'$(UseJaliumSourceReferences)' == 'true'">$(JaliumSourceRoot)src\managed\Jalium.UI.Build\bin\$(Configuration)\net10.0\Jalium.UI.Build.dll</_JalxamlTasksPath>
+    <JalxamlCompilerPath Condition="'$(UseJaliumSourceReferences)' == 'true'">$(JaliumSourceRoot)src\managed\Jalium.UI.Build\tools\jalxamlc.exe</JalxamlCompilerPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\Display\preview.png" />
+    <Content Include="Assets\Display\preview.png"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(FluentJaliumSourceRoot)src\FluentJalium\FluentJalium.csproj" />
+    <ProjectReference Include="$(LanMountainDesktopSourceRoot)LanMountainDesktop.Shared.IPC\LanMountainDesktop.Shared.IPC.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseJaliumSourceReferences)' == 'true'">
+    <ProjectReference Include="$(JaliumSourceRoot)src\packaging\Jalium.UI.Desktop\Jalium.UI.Desktop.csproj" />
+    <ProjectReference Include="$(JaliumSourceRoot)src\managed\Jalium.UI.Xaml.SourceGenerator\Jalium.UI.Xaml.SourceGenerator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all"
+                      UndefineProperties="PublishAot;PublishTrimmed;PublishSingleFile;PublishReadyToRun;SelfContained;RuntimeIdentifier;RuntimeIdentifiers;IsTrimmable;IsAotCompatible" />
+    <ProjectReference Include="$(JaliumSourceRoot)src\managed\Jalium.UI.Build\Jalium.UI.Build.csproj"
+                      ReferenceOutputAssembly="false" />
+    <PackageReference Include="Jalium.UI.Interop"
+                      GeneratePathProperty="true"
+                      PrivateAssets="all"
+                      ExcludeAssets="compile;runtime;native;contentFiles;analyzers;build;buildTransitive">
+      <IncludeAssets>none</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseJaliumSourceReferences)' != 'true'">
+    <PackageReference Include="Jalium.UI.Desktop" />
+    <PackageReference Include="Jalium.UI.Xaml.SourceGenerator"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all" />
+    <PackageReference Include="Jalium.UI.Build" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseJaliumSourceReferences)' == 'true'">
+    <PackageReference Update="Jalium.UI.Xaml.SourceGenerator" ExcludeAssets="all" />
+    <PackageReference Update="Jalium.UI.Build" ExcludeAssets="all" />
+  </ItemGroup>
+
+  <Target Name="CopyPackageJaliumNativeRuntimeForSourceReferences"
+          AfterTargets="CopyFilesToOutputDirectory"
+          Condition="'$(UseJaliumPackageNativeRuntime)' == 'true' and '$(UseJaliumSourceReferences)' == 'true'">
+    <ItemGroup>
+      <_PackageJaliumNativeRuntime Include="$(PkgJalium_UI_Interop)\runtimes\$(JaliumNativePackRid)\native\*.*"
+                                   Condition="'$(PkgJalium_UI_Interop)' != ''" />
+    </ItemGroup>
+
+    <Error Condition="'@(_PackageJaliumNativeRuntime)' == ''"
+           Text="Unable to locate Jalium.UI.Interop $(JaliumPackageVersion) native runtime assets for $(JaliumNativePackRid). Restore packages or set UseJaliumPackageNativeRuntime=false after rebuilding sibling Jalium.UI native binaries." />
+
+    <Copy SourceFiles="@(_PackageJaliumNativeRuntime)"
+          DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="false" />
+  </Target>
+
+  <Target Name="BuildLocalJaliumBuildTasks"
+          BeforeTargets="PrepareJalxamlForSourceGenerator;CompileJalxaml;GenerateJalxamlCodeBehind;EmbedJalxamlSources"
+          Condition="'$(UseJaliumSourceReferences)' == 'true'">
+    <MSBuild Projects="$(JaliumSourceRoot)src\managed\Jalium.UI.Build\Jalium.UI.Build.csproj"
+             Targets="Build"
+             Properties="Configuration=$(Configuration);Version=$(Version);UseSharedCompilation=false" />
+  </Target>
+
+  <Import Project="$(JaliumSourceRoot)src\managed\Jalium.UI.Build\build\Jalium.UI.Build.targets"
+          Condition="'$(UseJaliumSourceReferences)' == 'true' and Exists('$(JaliumSourceRoot)src\managed\Jalium.UI.Build\build\Jalium.UI.Build.targets')" />
+</Project>

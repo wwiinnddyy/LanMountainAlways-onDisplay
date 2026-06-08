@@ -1,0 +1,14 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageVersion Include="dotnetCampus.Ipc" Version="2.0.0-alpha436" />
+    <PackageVersion Include="Jalium.UI.Build" Version="$(JaliumPackageVersion)" />
+    <PackageVersion Include="Jalium.UI.Desktop" Version="$(JaliumPackageVersion)" />
+    <PackageVersion Include="Jalium.UI.Interop" Version="$(JaliumPackageVersion)" />
+    <PackageVersion Include="Jalium.UI.Xaml.SourceGenerator" Version="$(JaliumPackageVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="11.0.0-preview.3.26207.106" />
+  </ItemGroup>
+</Project>

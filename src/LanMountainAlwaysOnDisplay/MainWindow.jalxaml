@@ -1,0 +1,36 @@
+<Window xmlns="http://schemas.jalium.ui/2024"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="LanMountainAlwaysOnDisplay.MainWindow"
+        Title="LanMountain Always-on Display"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        WindowState="FullScreen"
+        IsShowTitle="False"
+        IsShowTitleBar="False"
+        IsShowMinimizeButton="False"
+        IsShowMaximizeButton="False"
+        IsShowCloseButton="False"
+        HasSystemMenu="False"
+        ShowInTaskbar="True"
+        Background="#000000">
+
+    <Grid x:Name="RootStage" Background="#000000">
+        <Image x:Name="PreviewImage"
+               Source="Assets/Display/preview.png"
+               Stretch="UniformToFill"
+               HorizontalAlignment="Stretch"
+               VerticalAlignment="Stretch" />
+
+        <Border x:Name="FallbackOverlay"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Background="#C0000000"
+                Padding="18,12"
+                CornerRadius="8"
+                Visibility="Collapsed">
+            <TextBlock Text="Preview image unavailable"
+                       Foreground="#FFFFFFFF"
+                       FontSize="16" />
+        </Border>
+    </Grid>
+</Window>

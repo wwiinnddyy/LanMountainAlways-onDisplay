@@ -1,0 +1,94 @@
+name: Build
+
+on:
+  push:
+    tags-ignore:
+      - '*'
+  pull_request:
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  SOLUTION_NAME: LanMountainAlwaysOnDisplay.slnx
+  DOTNET_gcServer: 1
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    name: Build_Windows_${{ matrix.configuration }}
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Debug, Release]
+
+    steps:
+      - name: Checkout Always-onDisplay
+        uses: actions/checkout@v4
+        with:
+          path: LanMountainAlways-onDisplay
+          fetch-depth: 0
+
+      - name: Checkout FluentJalium
+        uses: actions/checkout@v4
+        with:
+          repository: wwiinnddyy/FluentJalium
+          path: FluentJalium
+          fetch-depth: 0
+
+      - name: Checkout Jalium.UI
+        uses: actions/checkout@v4
+        with:
+          repository: VeryJokerJal/Jalium.UI
+          path: Jalium.UI
+          fetch-depth: 0
+
+      - name: Checkout LanMountainDesktop contracts
+        uses: actions/checkout@v4
+        with:
+          repository: wwiinnddyy/LanMountainDesktop
+          path: LanMountainDesktop
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          dotnet-quality: preview
+
+      - name: Restore
+        working-directory: LanMountainAlways-onDisplay
+        run: >
+          dotnet restore ${{ env.SOLUTION_NAME }}
+          /p:JaliumSourceRoot="${{ github.workspace }}\Jalium.UI\"
+          /p:FluentJaliumSourceRoot="${{ github.workspace }}\FluentJalium\"
+          /p:LanMountainDesktopSourceRoot="${{ github.workspace }}\LanMountainDesktop\"
+
+      - name: Build
+        working-directory: LanMountainAlways-onDisplay
+        run: >
+          dotnet build ${{ env.SOLUTION_NAME }}
+          --no-restore
+          -c ${{ matrix.configuration }}
+          /p:JaliumSourceRoot="${{ github.workspace }}\Jalium.UI\"
+          /p:FluentJaliumSourceRoot="${{ github.workspace }}\FluentJalium\"
+          /p:LanMountainDesktopSourceRoot="${{ github.workspace }}\LanMountainDesktop\"
+          /p:UseSharedCompilation=false
+          -v minimal
+
+      - name: Test
+        if: ${{ hashFiles('LanMountainAlways-onDisplay/tests/**/*.csproj') != '' }}
+        working-directory: LanMountainAlways-onDisplay
+        run: >
+          dotnet test ${{ env.SOLUTION_NAME }}
+          --no-build
+          -c ${{ matrix.configuration }}
+          /p:JaliumSourceRoot="${{ github.workspace }}\Jalium.UI\"
+          /p:FluentJaliumSourceRoot="${{ github.workspace }}\FluentJalium\"
+          /p:LanMountainDesktopSourceRoot="${{ github.workspace }}\LanMountainDesktop\"
+
+      - name: Upload app artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: always-on-display-${{ matrix.configuration }}
+          path: LanMountainAlways-onDisplay/src/LanMountainAlwaysOnDisplay/bin/${{ matrix.configuration }}/
+          retention-days: 7
