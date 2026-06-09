@@ -11,7 +11,10 @@
     <EnableJalxamlCodeGeneration>false</EnableJalxamlCodeGeneration>
     <EnableJalxamlRazorTransform>false</EnableJalxamlRazorTransform>
     <DefaultItemExcludes>$(DefaultItemExcludes);obj\**\*;bin\**\*</DefaultItemExcludes>
-    <_JalxamlTasksPath Condition="'$(UseJaliumSourceReferences)' == 'true'">$(JaliumSourceRoot)src\managed\Jalium.UI.Build\bin\$(Configuration)\net10.0\Jalium.UI.Build.dll</_JalxamlTasksPath>
+    <_LocalJaliumBuildTaskSourceDir>$(JaliumSourceRoot)src\managed\Jalium.UI.Build\bin\$(Configuration)\net10.0\</_LocalJaliumBuildTaskSourceDir>
+    <_LocalJaliumBuildTaskCacheStamp Condition="'$(_LocalJaliumBuildTaskCacheStamp)' == ''">$([System.Guid]::NewGuid())</_LocalJaliumBuildTaskCacheStamp>
+    <_LocalJaliumBuildTaskCacheDir>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\$(BaseIntermediateOutputPath)JaliumBuildTasks\$(Configuration)\$(_LocalJaliumBuildTaskCacheStamp)\net10.0\'))</_LocalJaliumBuildTaskCacheDir>
+    <_JalxamlTasksPath Condition="'$(UseJaliumSourceReferences)' == 'true'">$(_LocalJaliumBuildTaskCacheDir)Jalium.UI.Build.dll</_JalxamlTasksPath>
     <JalxamlCompilerPath Condition="'$(UseJaliumSourceReferences)' == 'true'">$(JaliumSourceRoot)src\managed\Jalium.UI.Build\tools\jalxamlc.exe</JalxamlCompilerPath>
   </PropertyGroup>
 
@@ -80,6 +83,15 @@
     <MSBuild Projects="$(JaliumSourceRoot)src\managed\Jalium.UI.Build\Jalium.UI.Build.csproj"
              Targets="Build"
              Properties="Configuration=$(Configuration);Version=$(Version);UseSharedCompilation=false" />
+
+    <ItemGroup>
+      <_LocalJaliumBuildTaskFiles Include="$(_LocalJaliumBuildTaskSourceDir)**\*.*" />
+    </ItemGroup>
+
+    <MakeDir Directories="$(_LocalJaliumBuildTaskCacheDir)" />
+    <Copy SourceFiles="@(_LocalJaliumBuildTaskFiles)"
+          DestinationFiles="@(_LocalJaliumBuildTaskFiles->'$(_LocalJaliumBuildTaskCacheDir)%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
   </Target>
 
   <Import Project="$(JaliumSourceRoot)src\managed\Jalium.UI.Build\build\Jalium.UI.Build.targets"

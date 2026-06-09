@@ -1,5 +1,6 @@
 <Window xmlns="http://schemas.jalium.ui/2024"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:fluent="https://jalium.dev/fluent"
         x:Class="LanMountainAlwaysOnDisplay.MainWindow"
         Title="LanMountain Always-on Display"
         WindowStyle="None"
@@ -15,22 +16,29 @@
         Background="#000000">
 
     <Grid x:Name="RootStage" Background="#000000">
-        <Image x:Name="PreviewImage"
-               Source="Assets/Display/preview.png"
-               Stretch="UniformToFill"
-               HorizontalAlignment="Stretch"
-               VerticalAlignment="Stretch" />
+        <Grid x:Name="BackgroundLayer" Background="#000000">
+            <Border x:Name="FallbackOverlay"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Background="#C0000000"
+                    Padding="18,12"
+                    CornerRadius="8"
+                    Visibility="Collapsed">
+                <TextBlock Text="Preview image unavailable"
+                           Foreground="#FFFFFFFF"
+                           FontSize="16" />
+            </Border>
+        </Grid>
 
-        <Border x:Name="FallbackOverlay"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                Background="#C0000000"
-                Padding="18,12"
-                CornerRadius="8"
-                Visibility="Collapsed">
-            <TextBlock Text="Preview image unavailable"
-                       Foreground="#FFFFFFFF"
-                       FontSize="16" />
-        </Border>
+        <Grid x:Name="ContentLayer"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch">
+            <fluent:FWButton x:Name="SettingsButton"
+                             HorizontalAlignment="Right"
+                             VerticalAlignment="Top"
+                             Margin="0,24,24,0"
+                             MinWidth="84"
+                             MinHeight="36" />
+        </Grid>
     </Grid>
 </Window>

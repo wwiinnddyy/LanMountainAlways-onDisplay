@@ -1,0 +1,11 @@
+<Window xmlns="http://schemas.jalium.ui/2024"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="LanMountainAlwaysOnDisplay.SettingsWindow"
+        Title="LanMountain Always-on Display Settings"
+        Width="860"
+        Height="560"
+        MinWidth="720"
+        MinHeight="480"
+        WindowStartupLocation="CenterScreen"
+        Background="#202020">
+</Window>
