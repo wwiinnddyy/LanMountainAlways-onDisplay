@@ -2,6 +2,7 @@ using FluentJalium.Controls;
 using FluentJalium.Icon;
 using Jalium.UI;
 using Jalium.UI.Controls;
+using Jalium.UI.Input;
 using Jalium.UI.Media;
 using MediaElement = Jalium.UI.Controls.MediaElement;
 
@@ -9,19 +10,34 @@ namespace LanMountainAlwaysOnDisplay;
 
 public partial class MainWindow : Window
 {
+    private const double UnlockSwipeThreshold = 120;
+    private const double UnlockSwipeIntentThreshold = 18;
+    private const double UnlockSwipeHorizontalToleranceRatio = 0.75;
+
     private readonly WallpaperSettingsStore _settingsStore = new();
     private WallpaperSettings _currentSettings = WallpaperSettings.Default;
     private MediaElement? _activeMediaElement;
     private WebView? _activeWebView;
     private SettingsWindow? _settingsWindow;
+    private bool _isUnlockMouseTracking;
+    private bool _isUnlockMouseCaptured;
+    private Point _unlockMouseStart;
+    private int _activeUnlockTouchId = -1;
+    private bool _isUnlockTouchCaptured;
+    private Point _unlockTouchStart;
 
     public MainWindow()
     {
         InitializeComponent();
         ConfigureContentLayer();
+        ConfigureUnlockGesture();
         _currentSettings = _settingsStore.Load();
         ApplyWallpaper(_currentSettings);
-        Closed += (_, _) => ReleaseActiveWallpaper();
+        Closed += (_, _) =>
+        {
+            CloseSettingsWindow();
+            ReleaseActiveWallpaper();
+        };
     }
 
     private void ConfigureContentLayer()
@@ -46,6 +62,158 @@ public partial class MainWindow : Window
             }
         };
         settingsButton.Click += (_, _) => OpenSettingsWindow();
+    }
+
+    private void ConfigureUnlockGesture()
+    {
+        ContentLayer.AddHandler(PreviewMouseDownEvent, new MouseButtonEventHandler(OnUnlockMouseDown), true);
+        ContentLayer.AddHandler(PreviewMouseMoveEvent, new MouseEventHandler(OnUnlockMouseMove), true);
+        ContentLayer.AddHandler(PreviewMouseUpEvent, new MouseButtonEventHandler(OnUnlockMouseUp), true);
+        ContentLayer.AddHandler(LostMouseCaptureEvent, new RoutedEventHandler(OnUnlockLostMouseCapture), true);
+
+        ContentLayer.AddHandler(PreviewTouchDownEvent, new RoutedEventHandler(OnUnlockTouchDown), true);
+        ContentLayer.AddHandler(PreviewTouchMoveEvent, new RoutedEventHandler(OnUnlockTouchMove), true);
+        ContentLayer.AddHandler(PreviewTouchUpEvent, new RoutedEventHandler(OnUnlockTouchUp), true);
+        ContentLayer.AddHandler(LostTouchCaptureEvent, new RoutedEventHandler(OnUnlockLostTouchCapture), true);
+    }
+
+    private void OnUnlockMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Left || IsInputFromSettingsButton(e.OriginalSource))
+        {
+            return;
+        }
+
+        _isUnlockMouseTracking = true;
+        _isUnlockMouseCaptured = false;
+        _unlockMouseStart = e.GetPosition(this);
+    }
+
+    private void OnUnlockMouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_isUnlockMouseTracking || e.LeftButton != MouseButtonState.Pressed)
+        {
+            ResetUnlockMouseGesture();
+            return;
+        }
+
+        var current = e.GetPosition(this);
+        if (TryUnlockFromSwipe(_unlockMouseStart, current))
+        {
+            e.Handled = true;
+            ExitAlwaysOnDisplay();
+            return;
+        }
+
+        if (!_isUnlockMouseCaptured && HasUpwardIntent(_unlockMouseStart, current))
+        {
+            ContentLayer.CaptureMouse();
+            _isUnlockMouseCaptured = true;
+        }
+
+        if (_isUnlockMouseCaptured)
+        {
+            e.Handled = true;
+        }
+    }
+
+    private void OnUnlockMouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Left)
+        {
+            return;
+        }
+
+        if (_isUnlockMouseTracking && TryUnlockFromSwipe(_unlockMouseStart, e.GetPosition(this)))
+        {
+            e.Handled = true;
+            ExitAlwaysOnDisplay();
+            return;
+        }
+
+        if (_isUnlockMouseCaptured)
+        {
+            e.Handled = true;
+        }
+
+        ResetUnlockMouseGesture();
+    }
+
+    private void OnUnlockLostMouseCapture(object sender, RoutedEventArgs e) => ResetUnlockMouseGesture(false);
+
+    private void OnUnlockTouchDown(object sender, RoutedEventArgs e)
+    {
+        if (e is not TouchEventArgs touchArgs ||
+            _activeUnlockTouchId != -1 ||
+            IsInputFromSettingsButton(e.OriginalSource))
+        {
+            return;
+        }
+
+        _activeUnlockTouchId = touchArgs.TouchDevice.Id;
+        _isUnlockTouchCaptured = false;
+        _unlockTouchStart = touchArgs.GetTouchPoint(this).Position;
+    }
+
+    private void OnUnlockTouchMove(object sender, RoutedEventArgs e)
+    {
+        if (e is not TouchEventArgs touchArgs || touchArgs.TouchDevice.Id != _activeUnlockTouchId)
+        {
+            return;
+        }
+
+        var current = touchArgs.GetTouchPoint(this).Position;
+        if (TryUnlockFromSwipe(_unlockTouchStart, current))
+        {
+            touchArgs.Cancel = true;
+            e.Handled = true;
+            ExitAlwaysOnDisplay();
+            return;
+        }
+
+        if (!_isUnlockTouchCaptured && HasUpwardIntent(_unlockTouchStart, current))
+        {
+            ContentLayer.CaptureTouch(touchArgs.TouchDevice);
+            _isUnlockTouchCaptured = true;
+        }
+
+        if (_isUnlockTouchCaptured)
+        {
+            touchArgs.Cancel = true;
+            e.Handled = true;
+        }
+    }
+
+    private void OnUnlockTouchUp(object sender, RoutedEventArgs e)
+    {
+        if (e is not TouchEventArgs touchArgs || touchArgs.TouchDevice.Id != _activeUnlockTouchId)
+        {
+            return;
+        }
+
+        if (TryUnlockFromSwipe(_unlockTouchStart, touchArgs.GetTouchPoint(this).Position))
+        {
+            touchArgs.Cancel = true;
+            e.Handled = true;
+            ExitAlwaysOnDisplay();
+            return;
+        }
+
+        if (_isUnlockTouchCaptured)
+        {
+            touchArgs.Cancel = true;
+            e.Handled = true;
+        }
+
+        ResetUnlockTouchGesture(touchArgs.TouchDevice);
+    }
+
+    private void OnUnlockLostTouchCapture(object sender, RoutedEventArgs e)
+    {
+        if (e is TouchEventArgs touchArgs && touchArgs.TouchDevice.Id == _activeUnlockTouchId)
+        {
+            ResetUnlockTouchGesture();
+        }
     }
 
     private void ApplyWallpaper(WallpaperSettings settings)
@@ -98,7 +266,7 @@ public partial class MainWindow : Window
         return settings.Kind switch
         {
             WallpaperKind.Image => CreateImageWallpaper(settings.Source),
-            WallpaperKind.Video => CreateVideoWallpaper(settings.Source),
+            WallpaperKind.Video => CreateVideoWallpaper(settings.Source, settings.IsMuted),
             WallpaperKind.Html => CreateHtmlWallpaper(settings.Source),
             _ => CreateImageWallpaper(WallpaperSettings.BundledPreviewSource)
         };
@@ -118,7 +286,7 @@ public partial class MainWindow : Window
         };
     }
 
-    private MediaElement CreateVideoWallpaper(string source)
+    private MediaElement CreateVideoWallpaper(string source, bool isMuted)
     {
         var mediaElement = new MediaElement
         {
@@ -126,8 +294,8 @@ public partial class MainWindow : Window
             Stretch = Stretch.UniformToFill,
             LoadedBehavior = MediaState.Play,
             UnloadedBehavior = MediaState.Close,
-            IsMuted = true,
-            Volume = 0,
+            IsMuted = isMuted,
+            Volume = isMuted ? 0 : 1,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch
         };
@@ -208,6 +376,89 @@ public partial class MainWindow : Window
     private void HideFallback() => FallbackOverlay.Visibility = Jalium.UI.Visibility.Collapsed;
 
     private void ShowFallback() => FallbackOverlay.Visibility = Jalium.UI.Visibility.Visible;
+
+    private static bool TryUnlockFromSwipe(Point start, Point current)
+    {
+        var deltaX = current.X - start.X;
+        var deltaY = current.Y - start.Y;
+        var upwardDistance = -deltaY;
+
+        return upwardDistance >= UnlockSwipeThreshold &&
+               Math.Abs(deltaX) <= upwardDistance * UnlockSwipeHorizontalToleranceRatio;
+    }
+
+    private static bool HasUpwardIntent(Point start, Point current)
+    {
+        var deltaX = current.X - start.X;
+        var deltaY = current.Y - start.Y;
+        var upwardDistance = -deltaY;
+
+        return upwardDistance >= UnlockSwipeIntentThreshold &&
+               upwardDistance > Math.Abs(deltaX);
+    }
+
+    private bool IsInputFromSettingsButton(object? source)
+    {
+        for (var current = source as Visual; current != null; current = current.VisualParent)
+        {
+            if (ReferenceEquals(current, SettingsButton))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void ExitAlwaysOnDisplay()
+    {
+        ResetUnlockMouseGesture();
+        ResetUnlockTouchGesture();
+        CloseSettingsWindow();
+        Close();
+    }
+
+    private void CloseSettingsWindow()
+    {
+        var window = _settingsWindow;
+        if (window == null)
+        {
+            return;
+        }
+
+        _settingsWindow = null;
+        window.Close();
+    }
+
+    private void ResetUnlockMouseGesture(bool releaseCapture = true)
+    {
+        _isUnlockMouseTracking = false;
+
+        if (releaseCapture && _isUnlockMouseCaptured)
+        {
+            ContentLayer.ReleaseMouseCapture();
+        }
+
+        _isUnlockMouseCaptured = false;
+    }
+
+    private void ResetUnlockTouchGesture(TouchDevice? touchDevice = null)
+    {
+        if (_isUnlockTouchCaptured)
+        {
+            if (touchDevice != null)
+            {
+                ContentLayer.ReleaseTouchCapture(touchDevice);
+            }
+            else
+            {
+                ContentLayer.ReleaseAllTouchCaptures();
+            }
+        }
+
+        _activeUnlockTouchId = -1;
+        _isUnlockTouchCaptured = false;
+    }
 
     private void ReleaseActiveWallpaper()
     {

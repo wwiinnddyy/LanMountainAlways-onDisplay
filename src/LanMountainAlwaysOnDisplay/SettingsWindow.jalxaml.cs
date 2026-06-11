@@ -8,9 +8,7 @@ namespace LanMountainAlwaysOnDisplay;
 
 public partial class SettingsWindow : Window
 {
-    private const string BackgroundPageKey = "background";
-    private const string ContentPageKey = "content";
-    private const string DisplayPageKey = "display";
+    private const string WallpaperPageKey = "wallpaper";
     private const string AboutPageKey = "about";
 
     private readonly Action<WallpaperSettings> _applySettings;
@@ -18,16 +16,30 @@ public partial class SettingsWindow : Window
     private WallpaperSettings _draftSettings;
     private WallpaperKind _selectedKind;
     private FWNavigationView? _navigationView;
-    private FWNavigationViewItem? _backgroundItem;
-    private FWNavigationViewItem? _contentItem;
-    private FWNavigationViewItem? _displayItem;
+    private FWNavigationViewItem? _wallpaperItem;
     private FWNavigationViewItem? _aboutItem;
     private FWStackPanel? _contentHost;
+
+    // 壁纸类型选择器
+    private FWSelectorBar? _wallpaperKindSelector;
+    private readonly Dictionary<WallpaperKind, FWSelectorBarItem> _wallpaperKindItems = [];
+
+    // 类型专属设置面板
+    private FWStackPanel? _kindSettingsHost;
+
+    // 图片设置
+    private FWTextBox? _imageSourceTextBox;
+    private FWComboBox? _imagePlacementCombo;
+
+    // 视频设置
+    private FWTextBox? _videoSourceTextBox;
+    private FWToggleSwitch? _videoMutedSwitch;
+
+    // HTML 设置
+    private FWTextBox? _htmlSourceTextBox;
+
+    // 状态
     private FWTextBlock? _statusText;
-    private FWTextBox? _sourceTextBox;
-    private FWButton? _browseButton;
-    private FWButton? _useBundledButton;
-    private readonly Dictionary<WallpaperKind, FWButton> _wallpaperKindButtons = [];
 
     public SettingsWindow(WallpaperSettings currentSettings, Action<WallpaperSettings> applySettings)
     {
@@ -37,7 +49,7 @@ public partial class SettingsWindow : Window
 
         InitializeComponent();
         Content = CreateContent();
-        NavigateTo(BackgroundPageKey);
+        NavigateTo(WallpaperPageKey);
     }
 
     private UIElement CreateContent()
@@ -69,14 +81,10 @@ public partial class SettingsWindow : Window
             }
         };
 
-        _backgroundItem = CreateNavigationItem(BackgroundPageKey, "背景", FluentIconRegular.Image24);
-        _contentItem = CreateNavigationItem(ContentPageKey, "内容层", FluentIconRegular.Layer24);
-        _displayItem = CreateNavigationItem(DisplayPageKey, "显示", FluentIconRegular.Desktop24);
+        _wallpaperItem = CreateNavigationItem(WallpaperPageKey, "壁纸", FluentIconRegular.Image24);
         _aboutItem = CreateNavigationItem(AboutPageKey, "关于", FluentIconRegular.Info24);
 
-        _navigationView.MenuItems.Add(_backgroundItem);
-        _navigationView.MenuItems.Add(_contentItem);
-        _navigationView.MenuItems.Add(_displayItem);
+        _navigationView.MenuItems.Add(_wallpaperItem);
         _navigationView.FooterMenuItems.Add(_aboutItem);
         _navigationView.SelectionChanged += (_, e) =>
         {
@@ -86,7 +94,7 @@ public partial class SettingsWindow : Window
             }
         };
         _navigationView.UpdateMenuItems();
-        _navigationView.SelectedItem = _backgroundItem;
+        _navigationView.SelectedItem = _wallpaperItem;
 
         return new FWFluentWindowSurface
         {
@@ -124,8 +132,7 @@ public partial class SettingsWindow : Window
     {
         return new FWNavigationViewItem
         {
-            Content = title,
-            Icon = FluentIconFactory.Regular(icon, 18),
+            Content = CreateNavigationContent(icon, title),
             Tag = pageKey
         };
     }
@@ -138,93 +145,314 @@ public partial class SettingsWindow : Window
         }
 
         _contentHost.Children.Clear();
-        _wallpaperKindButtons.Clear();
-        _sourceTextBox = null;
-        _browseButton = null;
-        _useBundledButton = null;
-        _statusText = null;
+        ResetWallpaperControls();
 
         switch (pageKey)
         {
-            case BackgroundPageKey:
-                BuildBackgroundPage(_contentHost);
-                break;
-            case ContentPageKey:
-                BuildContentLayerPage(_contentHost);
-                break;
-            case DisplayPageKey:
-                BuildDisplayPage(_contentHost);
+            case WallpaperPageKey:
+                BuildWallpaperPage(_contentHost);
                 break;
             case AboutPageKey:
                 BuildAboutPage(_contentHost);
                 break;
             default:
-                BuildBackgroundPage(_contentHost);
+                BuildWallpaperPage(_contentHost);
                 break;
         }
     }
 
-    private void BuildBackgroundPage(FWStackPanel host)
+    private void ResetWallpaperControls()
+    {
+        _wallpaperKindItems.Clear();
+        _wallpaperKindSelector = null;
+        _kindSettingsHost = null;
+        _imageSourceTextBox = null;
+        _imagePlacementCombo = null;
+        _videoSourceTextBox = null;
+        _videoMutedSwitch = null;
+        _htmlSourceTextBox = null;
+        _statusText = null;
+    }
+
+    // ─── 壁纸页面 ──────────────────────────────────────────────
+
+    private void BuildWallpaperPage(FWStackPanel host)
     {
         host.Children.Add(CreatePageHeader(
-            "背景",
-            "选择全天候显示的背景来源。背景层可以承载静态图片、动态视频或 HTML 页面。"));
-        host.Children.Add(CreateCurrentWallpaperCard());
+            "壁纸",
+            "选择全天候显示的背景。支持图片、视频和 HTML 页面三种类型。"));
+
+        // 壁纸类型选择
         host.Children.Add(CreateWallpaperKindCard());
-        host.Children.Add(CreateWallpaperSourceCard());
+
+        // 类型专属设置区域
+        _kindSettingsHost = new FWStackPanel
+        {
+            Orientation = Orientation.Vertical,
+            Spacing = 8
+        };
+        host.Children.Add(_kindSettingsHost);
+
+        // 应用按钮
         host.Children.Add(CreateActionsRow());
+
+        // 初始化类型对应的设置
         UpdateWallpaperKind(_selectedKind, keepExistingSource: true);
     }
 
-    private void BuildContentLayerPage(FWStackPanel host)
+    private UIElement CreateWallpaperKindCard()
     {
-        host.Children.Add(CreatePageHeader(
-            "内容层",
-            "内容层用于承载后续交互控件，本轮先保留设置入口和结构占位。"));
-        host.Children.Add(new FWSettingsCard
+        _wallpaperKindSelector = new FWSelectorBar
         {
-            Header = "设置入口",
-            Description = "主窗口右上角常驻显示设置按钮，后续可改为悬浮或自动隐藏。",
-            HeaderIcon = FluentIconFactory.Regular(FluentIconRegular.Settings24, 18, SubtleTextBrush()),
-            Content = new FWTextBlock
+            Orientation = Orientation.Horizontal,
+            Density = FWNavigationDensity.Comfortable,
+            SelectionIndicatorPlacement = FWSelectorBarSelectionIndicatorPlacement.Bottom
+        };
+
+        _wallpaperKindSelector.Items.Add(CreateWallpaperKindItem(WallpaperKind.Image));
+        _wallpaperKindSelector.Items.Add(CreateWallpaperKindItem(WallpaperKind.Video));
+        _wallpaperKindSelector.Items.Add(CreateWallpaperKindItem(WallpaperKind.Html));
+        _wallpaperKindSelector.SelectionChanged += (_, _) =>
+        {
+            if (_wallpaperKindSelector.SelectedItem is FWSelectorBarItem item && item.Tag is WallpaperKind kind)
             {
-                Text = "已启用",
-                Foreground = SubtleTextBrush()
+                UpdateWallpaperKind(kind, keepExistingSource: false);
             }
-        });
-        host.Children.Add(CreatePlaceholderCard(
-            FluentIconRegular.Layer24,
-            "内容控件",
-            "后续会在这里配置时间、天气、日程等全天候显示内容。"));
+        };
+
+        return new FWSettingsCard
+        {
+            Header = "壁纸类型",
+            Description = "选择背景内容的类型。",
+            HeaderIcon = FluentIconFactory.Regular(FluentIconRegular.Layer24, 18, SubtleTextBrush()),
+            Content = _wallpaperKindSelector
+        };
     }
 
-    private void BuildDisplayPage(FWStackPanel host)
+    private void UpdateWallpaperKind(WallpaperKind kind, bool keepExistingSource)
     {
-        host.Children.Add(CreatePageHeader(
-            "显示",
-            "管理窗口显示方式和屏幕行为。当前主窗口保持无边框全屏显示。"));
+        _selectedKind = kind;
+
+        // 更新选择器
+        if (_wallpaperKindSelector != null && _wallpaperKindItems.TryGetValue(kind, out var selectedItem))
+        {
+            _wallpaperKindSelector.SelectedItem = selectedItem;
+        }
+
+        // 重建类型专属设置
+        if (_kindSettingsHost != null)
+        {
+            _kindSettingsHost.Children.Clear();
+
+            switch (kind)
+            {
+                case WallpaperKind.Image:
+                    BuildImageSettings(_kindSettingsHost, keepExistingSource);
+                    break;
+                case WallpaperKind.Video:
+                    BuildVideoSettings(_kindSettingsHost, keepExistingSource);
+                    break;
+                case WallpaperKind.Html:
+                    BuildHtmlSettings(_kindSettingsHost, keepExistingSource);
+                    break;
+            }
+        }
+
+        SetStatus(GetStatusText(kind));
+    }
+
+    // ─── 图片壁纸设置 ──────────────────────────────────────────
+
+    private void BuildImageSettings(FWStackPanel host, bool keepExistingSource)
+    {
+        var source = keepExistingSource && _draftSettings.Kind == WallpaperKind.Image
+            ? _draftSettings.Source
+            : WallpaperSettings.BundledPreviewSource;
+
+        // 文件来源
+        _imageSourceTextBox = new FWTextBox
+        {
+            Text = source,
+            MinHeight = 34,
+            TextWrapping = TextWrapping.NoWrap,
+            Width = 320
+        };
+
+        var browseButton = new FWButton
+        {
+            Width = 36,
+            Height = 34,
+            Content = FluentIconFactory.Regular(FluentIconRegular.FolderOpen24, 16)
+        };
+        browseButton.Click += (_, _) => BrowseForKind(WallpaperKind.Image);
+
+        var bundledButton = new FWButton
+        {
+            Width = 36,
+            Height = 34,
+            Content = FluentIconFactory.Regular(FluentIconRegular.Image24, 16)
+        };
+        bundledButton.Click += (_, _) =>
+        {
+            if (_imageSourceTextBox != null)
+            {
+                _imageSourceTextBox.Text = WallpaperSettings.BundledPreviewSource;
+                SetStatus("已切换为内置预览图。");
+            }
+        };
+
+        var sourceRow = new Grid { ColumnSpacing = 8 };
+        sourceRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        sourceRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        sourceRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        Grid.SetColumn(_imageSourceTextBox, 0);
+        sourceRow.Children.Add(_imageSourceTextBox);
+        Grid.SetColumn(browseButton, 1);
+        sourceRow.Children.Add(browseButton);
+        Grid.SetColumn(bundledButton, 2);
+        sourceRow.Children.Add(bundledButton);
+
         host.Children.Add(new FWSettingsCard
         {
-            Header = "窗口模式",
-            Description = "主窗口使用无边框全屏，背景按比例填充。",
-            HeaderIcon = FluentIconFactory.Regular(FluentIconRegular.FullScreenMaximize24, 18, SubtleTextBrush()),
-            Content = new FWTextBlock
-            {
-                Text = "全屏",
-                Foreground = SubtleTextBrush()
-            }
+            Header = "图片来源",
+            Description = "选择本地图片文件作为壁纸。支持 PNG、JPG、BMP、WEBP 格式。",
+            HeaderIcon = FluentIconFactory.Regular(FluentIconRegular.Folder24, 18, SubtleTextBrush()),
+            Content = new Border { Width = 440, Child = sourceRow }
         });
-        host.Children.Add(CreatePlaceholderCard(
-            FluentIconRegular.Desktop24,
-            "目标屏幕",
-            "多屏选择会在后续与阑山桌面联动时接入。"));
+
+        // 填充方式
+        _imagePlacementCombo = new FWComboBox
+        {
+            Width = 200,
+            MinHeight = 34
+        };
+        _imagePlacementCombo.Items.Add("填充");
+        _imagePlacementCombo.Items.Add("适应");
+        _imagePlacementCombo.Items.Add("拉伸");
+        _imagePlacementCombo.Items.Add("居中");
+        _imagePlacementCombo.Items.Add("平铺");
+        _imagePlacementCombo.SelectedIndex = GetPlacementIndex(_draftSettings.Placement);
+
+        host.Children.Add(new FWSettingsCard
+        {
+            Header = "填充方式",
+            Description = "调整图片在桌面上的显示方式。",
+            HeaderIcon = FluentIconFactory.Regular(FluentIconRegular.FullScreenMaximize24, 18, SubtleTextBrush()),
+            Content = _imagePlacementCombo
+        });
     }
+
+    // ─── 视频壁纸设置 ──────────────────────────────────────────
+
+    private void BuildVideoSettings(FWStackPanel host, bool keepExistingSource)
+    {
+        var source = keepExistingSource && _draftSettings.Kind == WallpaperKind.Video
+            ? _draftSettings.Source
+            : string.Empty;
+
+        // 文件来源
+        _videoSourceTextBox = new FWTextBox
+        {
+            Text = source,
+            MinHeight = 34,
+            TextWrapping = TextWrapping.NoWrap,
+            PlaceholderText = @"D:\Videos\wallpaper.mp4",
+            Width = 320
+        };
+
+        var browseButton = new FWButton
+        {
+            Width = 36,
+            Height = 34,
+            Content = FluentIconFactory.Regular(FluentIconRegular.FolderOpen24, 16)
+        };
+        browseButton.Click += (_, _) => BrowseForKind(WallpaperKind.Video);
+
+        var sourceRow = new Grid { ColumnSpacing = 8 };
+        sourceRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        sourceRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        Grid.SetColumn(_videoSourceTextBox, 0);
+        sourceRow.Children.Add(_videoSourceTextBox);
+        Grid.SetColumn(browseButton, 1);
+        sourceRow.Children.Add(browseButton);
+
+        host.Children.Add(new FWSettingsCard
+        {
+            Header = "视频来源",
+            Description = "选择本地视频文件作为壁纸。支持 MP4、MOV、MKV、WEBM、AVI 格式。",
+            HeaderIcon = FluentIconFactory.Regular(FluentIconRegular.Folder24, 18, SubtleTextBrush()),
+            Content = new Border { Width = 440, Child = sourceRow }
+        });
+
+        // 静音开关
+        _videoMutedSwitch = new FWToggleSwitch
+        {
+            IsOn = _draftSettings.IsMuted
+        };
+
+        host.Children.Add(new FWSettingsCard
+        {
+            Header = "静音播放",
+            Description = "视频壁纸默认静音循环播放。关闭后可听到视频原声。",
+            HeaderIcon = FluentIconFactory.Regular(FluentIconRegular.SpeakerMute24, 18, SubtleTextBrush()),
+            Content = _videoMutedSwitch
+        });
+    }
+
+    // ─── HTML 壁纸设置 ─────────────────────────────────────────
+
+    private void BuildHtmlSettings(FWStackPanel host, bool keepExistingSource)
+    {
+        var source = keepExistingSource && _draftSettings.Kind == WallpaperKind.Html
+            ? _draftSettings.Source
+            : string.Empty;
+
+        // URL / 文件路径
+        _htmlSourceTextBox = new FWTextBox
+        {
+            Text = source,
+            MinHeight = 34,
+            TextWrapping = TextWrapping.NoWrap,
+            PlaceholderText = "https://example.com/dashboard.html",
+            Width = 320
+        };
+
+        var browseButton = new FWButton
+        {
+            Width = 36,
+            Height = 34,
+            Content = FluentIconFactory.Regular(FluentIconRegular.Document24, 16)
+        };
+        browseButton.Click += (_, _) => BrowseForKind(WallpaperKind.Html);
+
+        var sourceRow = new Grid { ColumnSpacing = 8 };
+        sourceRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        sourceRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        Grid.SetColumn(_htmlSourceTextBox, 0);
+        sourceRow.Children.Add(_htmlSourceTextBox);
+        Grid.SetColumn(browseButton, 1);
+        sourceRow.Children.Add(browseButton);
+
+        host.Children.Add(new FWSettingsCard
+        {
+            Header = "页面来源",
+            Description = "输入网页地址或选择本地 HTML 文件。支持 http、https 协议。",
+            HeaderIcon = FluentIconFactory.Regular(FluentIconRegular.Globe24, 18, SubtleTextBrush()),
+            Content = new Border { Width = 440, Child = sourceRow }
+        });
+    }
+
+    // ─── 关于页面 ──────────────────────────────────────────────
 
     private void BuildAboutPage(FWStackPanel host)
     {
         host.Children.Add(CreatePageHeader(
             "关于",
             "LanMountain Always-on Display 是阑山桌面的独立组件程序。"));
+
         host.Children.Add(new FWSettingsCard
         {
             Header = "版本",
@@ -236,11 +464,21 @@ public partial class SettingsWindow : Window
                 Foreground = SubtleTextBrush()
             }
         });
-        host.Children.Add(CreatePlaceholderCard(
-            FluentIconRegular.PlugDisconnected24,
-            "桌面通信",
-            "DotnetCampus IPC 引用已保留，后续迭代再启动通信行为。"));
+
+        host.Children.Add(new FWSettingsCard
+        {
+            Header = "桌面通信",
+            Description = "DotnetCampus IPC 引用已保留，后续迭代再启动通信行为。",
+            HeaderIcon = FluentIconFactory.Regular(FluentIconRegular.PlugDisconnected24, 18, SubtleTextBrush()),
+            Content = new FWTextBlock
+            {
+                Text = "稍后",
+                Foreground = SubtleTextBrush()
+            }
+        });
     }
+
+    // ─── 通用组件 ──────────────────────────────────────────────
 
     private static UIElement CreatePageHeader(string title, string description)
     {
@@ -263,102 +501,6 @@ public partial class SettingsWindow : Window
                     Foreground = SubtleTextBrush(),
                     TextWrapping = TextWrapping.Wrap
                 }
-            }
-        };
-    }
-
-    private UIElement CreateCurrentWallpaperCard()
-    {
-        return new FWSettingsCard
-        {
-            Header = "当前背景",
-            Description = "已经应用到主窗口背景层的来源。",
-            HeaderIcon = FluentIconFactory.Regular(FluentIconRegular.Desktop24, 18, SubtleTextBrush()),
-            Content = new Border
-            {
-                Width = 360,
-                Child = new FWTextBlock
-                {
-                    Text = $"{GetKindTitle(_draftSettings.Kind)}\n{_draftSettings.Source}",
-                    TextWrapping = TextWrapping.Wrap,
-                    Foreground = SubtleTextBrush()
-                }
-            }
-        };
-    }
-
-    private UIElement CreateWallpaperKindCard()
-    {
-        var selector = new FWStackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Spacing = 8
-        };
-
-        selector.Children.Add(CreateWallpaperKindButton(WallpaperKind.Image));
-        selector.Children.Add(CreateWallpaperKindButton(WallpaperKind.Video));
-        selector.Children.Add(CreateWallpaperKindButton(WallpaperKind.Html));
-
-        return new FWSettingsCard
-        {
-            Header = "背景类型",
-            Description = "选择背景层要承载的内容类型。",
-            HeaderIcon = FluentIconFactory.Regular(FluentIconRegular.Layer24, 18, SubtleTextBrush()),
-            Content = selector
-        };
-    }
-
-    private UIElement CreateWallpaperSourceCard()
-    {
-        _sourceTextBox = new FWTextBox
-        {
-            MinHeight = 34,
-            TextWrapping = TextWrapping.NoWrap
-        };
-
-        _browseButton = new FWButton
-        {
-            MinWidth = 96
-        };
-        _browseButton.Click += (_, _) => BrowseForSelectedKind();
-
-        _useBundledButton = new FWButton
-        {
-            Content = "使用内置预览",
-            MinWidth = 112
-        };
-        _useBundledButton.Click += (_, _) =>
-        {
-            if (_sourceTextBox != null)
-            {
-                _sourceTextBox.Text = WallpaperSettings.BundledPreviewSource;
-                SetStatus("已切换为内置预览图。");
-            }
-        };
-
-        var sourceRow = new Grid { ColumnSpacing = 8 };
-        sourceRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        sourceRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        sourceRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-        Grid.SetColumn(_sourceTextBox, 0);
-        sourceRow.Children.Add(_sourceTextBox);
-
-        Grid.SetColumn(_browseButton, 1);
-        sourceRow.Children.Add(_browseButton);
-
-        Grid.SetColumn(_useBundledButton, 2);
-        sourceRow.Children.Add(_useBundledButton);
-
-        return new FWSettingsCard
-        {
-            Header = "来源",
-            Description = "图片和视频使用本地文件；HTML 支持本地文件或网页地址。",
-            HeaderIcon = FluentIconFactory.Regular(FluentIconRegular.Folder24, 18, SubtleTextBrush()),
-            Content = new Border
-            {
-                Width = 440,
-                Child = sourceRow
             }
         };
     }
@@ -393,98 +535,56 @@ public partial class SettingsWindow : Window
         return actions;
     }
 
-    private FWButton CreateWallpaperKindButton(WallpaperKind kind)
+    private FWSelectorBarItem CreateWallpaperKindItem(WallpaperKind kind)
     {
-        var button = new FWButton
+        var item = new FWSelectorBarItem
         {
-            MinWidth = 104,
-            MinHeight = 36,
-            Content = CreateButtonContent(GetKindIcon(kind), GetKindTitle(kind))
+            Text = GetKindTitle(kind),
+            Icon = FluentIconFactory.Regular(GetKindIcon(kind), 16),
+            Tag = kind
         };
-        button.Click += (_, _) => UpdateWallpaperKind(kind, keepExistingSource: false);
-        _wallpaperKindButtons[kind] = button;
-        return button;
+        _wallpaperKindItems[kind] = item;
+        return item;
     }
 
-    private static FWSettingsCard CreatePlaceholderCard(
-        FluentIconRegular icon,
-        string header,
-        string description)
-    {
-        return new FWSettingsCard
-        {
-            Header = header,
-            Description = description,
-            HeaderIcon = FluentIconFactory.Regular(icon, 18, SubtleTextBrush()),
-            Content = new FWTextBlock
-            {
-                Text = "稍后",
-                Foreground = SubtleTextBrush()
-            }
-        };
-    }
+    // ─── 文件浏览 ──────────────────────────────────────────────
 
-    private void UpdateWallpaperKind(WallpaperKind kind, bool keepExistingSource)
-    {
-        _selectedKind = kind;
-        var source = keepExistingSource && _draftSettings.Kind == kind
-            ? _draftSettings.Source
-            : GetDefaultSource(kind);
-
-        if (_sourceTextBox != null)
-        {
-            _sourceTextBox.Text = source;
-            _sourceTextBox.PlaceholderText = GetSourcePlaceholder(kind);
-        }
-
-        if (_browseButton != null)
-        {
-            _browseButton.Content = CreateButtonContent(
-                kind == WallpaperKind.Html ? FluentIconRegular.Document24 : FluentIconRegular.FolderOpen24,
-                kind == WallpaperKind.Html ? "选择 HTML" : "浏览");
-        }
-
-        if (_useBundledButton != null)
-        {
-            _useBundledButton.Visibility = kind == WallpaperKind.Image ? Visibility.Visible : Visibility.Collapsed;
-        }
-
-        foreach (var pair in _wallpaperKindButtons)
-        {
-            pair.Value.Content = CreateButtonContent(
-                pair.Key == kind ? FluentIconRegular.Checkmark24 : GetKindIcon(pair.Key),
-                GetKindTitle(pair.Key));
-        }
-
-        SetStatus(GetStatusText(kind));
-    }
-
-    private void BrowseForSelectedKind()
+    private void BrowseForKind(WallpaperKind kind)
     {
         var dialog = new OpenFileDialog
         {
-            Title = GetDialogTitle(_selectedKind),
-            Filter = GetDialogFilter(_selectedKind),
+            Title = GetDialogTitle(kind),
+            Filter = GetDialogFilter(kind),
             CheckFileExists = true,
             Multiselect = false
         };
 
         var result = dialog.ShowDialog();
-        if (result == true && !string.IsNullOrWhiteSpace(dialog.FileName) && _sourceTextBox != null)
-        {
-            _sourceTextBox.Text = dialog.FileName;
-            SetStatus("已选择文件，点击应用后生效。");
-        }
-    }
-
-    private void ApplyDraftSettings()
-    {
-        if (_sourceTextBox == null)
+        if (result != true || string.IsNullOrWhiteSpace(dialog.FileName))
         {
             return;
         }
 
-        var source = _sourceTextBox.Text.Trim();
+        var textBox = kind switch
+        {
+            WallpaperKind.Image => _imageSourceTextBox,
+            WallpaperKind.Video => _videoSourceTextBox,
+            WallpaperKind.Html => _htmlSourceTextBox,
+            _ => null
+        };
+
+        if (textBox != null)
+        {
+            textBox.Text = dialog.FileName;
+            SetStatus("已选择文件，点击应用后生效。");
+        }
+    }
+
+    // ─── 应用设置 ──────────────────────────────────────────────
+
+    private void ApplyDraftSettings()
+    {
+        var source = GetSourceFromCurrentKind();
         if (string.IsNullOrWhiteSpace(source))
         {
             SetStatus("请先选择或输入背景来源。");
@@ -497,10 +597,42 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        _draftSettings = new WallpaperSettings(_selectedKind, source).Normalize();
+        var isMuted = _selectedKind == WallpaperKind.Video
+            ? _videoMutedSwitch?.IsOn ?? true
+            : true;
+
+        var placement = _selectedKind == WallpaperKind.Image
+            ? GetPlacementFromCombo()
+            : WallpaperSettings.DefaultPlacement;
+
+        _draftSettings = new WallpaperSettings(_selectedKind, source, isMuted, placement).Normalize();
         _applySettings(_draftSettings);
-        NavigateTo(BackgroundPageKey);
+        NavigateTo(WallpaperPageKey);
         SetStatus("已应用到背景层。");
+    }
+
+    private string GetPlacementFromCombo()
+    {
+        return _imagePlacementCombo?.SelectedIndex switch
+        {
+            0 => "Fill",
+            1 => "Fit",
+            2 => "Stretch",
+            3 => "Center",
+            4 => "Tile",
+            _ => WallpaperSettings.DefaultPlacement
+        };
+    }
+
+    private string? GetSourceFromCurrentKind()
+    {
+        return _selectedKind switch
+        {
+            WallpaperKind.Image => _imageSourceTextBox?.Text.Trim(),
+            WallpaperKind.Video => _videoSourceTextBox?.Text.Trim(),
+            WallpaperKind.Html => _htmlSourceTextBox?.Text.Trim(),
+            _ => null
+        };
     }
 
     private static bool IsSourceUsable(WallpaperKind kind, string source)
@@ -541,6 +673,8 @@ public partial class SettingsWindow : Window
         }
     }
 
+    // ─── 静态辅助方法 ──────────────────────────────────────────
+
     private static UIElement CreateButtonContent(FluentIconRegular icon, string text)
     {
         return new FWStackPanel
@@ -559,8 +693,23 @@ public partial class SettingsWindow : Window
         };
     }
 
-    private static string GetDefaultSource(WallpaperKind kind)
-        => kind == WallpaperKind.Image ? WallpaperSettings.BundledPreviewSource : string.Empty;
+    private static UIElement CreateNavigationContent(FluentIconRegular icon, string text)
+    {
+        return new FWStackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 12,
+            Children =
+            {
+                FluentIconFactory.Regular(icon, 18),
+                new FWTextBlock
+                {
+                    Text = text,
+                    VerticalAlignment = VerticalAlignment.Center
+                }
+            }
+        };
+    }
 
     private static string GetKindTitle(WallpaperKind kind)
         => kind switch
@@ -569,15 +718,6 @@ public partial class SettingsWindow : Window
             WallpaperKind.Video => "视频",
             WallpaperKind.Html => "HTML",
             _ => "背景"
-        };
-
-    private static string GetSourcePlaceholder(WallpaperKind kind)
-        => kind switch
-        {
-            WallpaperKind.Image => @"D:\Pictures\wallpaper.png",
-            WallpaperKind.Video => @"D:\Videos\wallpaper.mp4",
-            WallpaperKind.Html => "https://example.com/dashboard.html",
-            _ => string.Empty
         };
 
     private static string GetStatusText(WallpaperKind kind)
@@ -592,10 +732,10 @@ public partial class SettingsWindow : Window
     private static string GetDialogTitle(WallpaperKind kind)
         => kind switch
         {
-            WallpaperKind.Image => "选择图片背景",
-            WallpaperKind.Video => "选择视频背景",
-            WallpaperKind.Html => "选择 HTML 背景",
-            _ => "选择背景"
+            WallpaperKind.Image => "选择图片壁纸",
+            WallpaperKind.Video => "选择视频壁纸",
+            WallpaperKind.Html => "选择 HTML 壁纸",
+            _ => "选择壁纸"
         };
 
     private static string GetDialogFilter(WallpaperKind kind)
@@ -614,6 +754,16 @@ public partial class SettingsWindow : Window
             WallpaperKind.Video => FluentIconRegular.Video24,
             WallpaperKind.Html => FluentIconRegular.Code24,
             _ => FluentIconRegular.Desktop24
+        };
+
+    private static int GetPlacementIndex(string? placement)
+        => placement?.Trim().ToLowerInvariant() switch
+        {
+            "fit" => 1,
+            "stretch" => 2,
+            "center" => 3,
+            "tile" => 4,
+            _ => 0
         };
 
     private static SolidColorBrush SubtleTextBrush()

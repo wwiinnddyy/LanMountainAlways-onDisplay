@@ -31,6 +31,7 @@
         </Grid>
 
         <Grid x:Name="ContentLayer"
+              Background="Transparent"
               HorizontalAlignment="Stretch"
               VerticalAlignment="Stretch">
             <fluent:FWButton x:Name="SettingsButton"
