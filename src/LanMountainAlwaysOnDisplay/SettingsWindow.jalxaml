@@ -1,5 +1,6 @@
 <Window xmlns="http://schemas.jalium.ui/2024"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:fluent="https://jalium.dev/fluent"
         x:Class="LanMountainAlwaysOnDisplay.SettingsWindow"
         Title="LanMountain Always-on Display Settings"
         Width="860"
@@ -8,4 +9,43 @@
         MinHeight="480"
         WindowStartupLocation="CenterScreen"
         Background="#202020">
+
+    <fluent:FWFluentWindowSurface Padding="0">
+        <fluent:FWNavigationView x:Name="NavigationView"
+                                 PaneTitle="设置"
+                                 PaneDisplayMode="Left"
+                                 Density="Comfortable"
+                                 OpenPaneLength="248"
+                                 CompactPaneLength="48"
+                                 SelectionChanged="NavigationView_SelectionChanged">
+
+            <fluent:FWNavigationView.MenuItems>
+                <fluent:FWNavigationViewItem x:Name="WallpaperItem" Tag="wallpaper">
+                    <fluent:FWNavigationViewItem.Content>
+                        <fluent:FWStackPanel Orientation="Horizontal" Spacing="12">
+                            <ContentControl x:Name="WallpaperIconHost" />
+                            <fluent:FWTextBlock Text="壁纸" VerticalAlignment="Center" />
+                        </fluent:FWStackPanel>
+                    </fluent:FWNavigationViewItem.Content>
+                </fluent:FWNavigationViewItem>
+            </fluent:FWNavigationView.MenuItems>
+
+            <fluent:FWNavigationView.FooterMenuItems>
+                <fluent:FWNavigationViewItem x:Name="AboutItem" Tag="about">
+                    <fluent:FWNavigationViewItem.Content>
+                        <fluent:FWStackPanel Orientation="Horizontal" Spacing="12">
+                            <ContentControl x:Name="AboutIconHost" />
+                            <fluent:FWTextBlock Text="关于" VerticalAlignment="Center" />
+                        </fluent:FWStackPanel>
+                    </fluent:FWNavigationViewItem.Content>
+                </fluent:FWNavigationViewItem>
+            </fluent:FWNavigationView.FooterMenuItems>
+
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                <Border Padding="34,28,38,32">
+                    <ContentControl x:Name="ContentHost" />
+                </Border>
+            </ScrollViewer>
+        </fluent:FWNavigationView>
+    </fluent:FWFluentWindowSurface>
 </Window>

@@ -1,0 +1,103 @@
+<UserControl xmlns="http://schemas.jalium.ui/2024"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:fluent="https://jalium.dev/fluent"
+             x:Class="LanMountainAlwaysOnDisplay.Views.WallpaperSettingsPage">
+    <fluent:FWStackPanel Orientation="Vertical" Spacing="8">
+        <fluent:FWStackPanel Orientation="Vertical" Spacing="6" Margin="0,0,0,16">
+            <fluent:FWTextBlock Text="壁纸" FontSize="28" FontWeight="SemiBold" />
+            <fluent:FWTextBlock Text="选择全天候显示的背景。支持图片、视频和 HTML 页面三种类型。" FontSize="14" Foreground="#CCFFFFFF" TextWrapping="Wrap" />
+        </fluent:FWStackPanel>
+
+        <fluent:FWSettingsCard x:Name="KindCard" Header="壁纸类型" Description="选择背景内容的类型。">
+            <fluent:FWSettingsCard.Content>
+                <fluent:FWSelectorBar x:Name="WallpaperKindSelector" Orientation="Horizontal" Density="Comfortable" SelectionIndicatorPlacement="Bottom" SelectionChanged="WallpaperKindSelector_SelectionChanged" />
+            </fluent:FWSettingsCard.Content>
+        </fluent:FWSettingsCard>
+
+        <!-- Image Settings -->
+        <fluent:FWStackPanel x:Name="ImageSettingsPanel" Orientation="Vertical" Spacing="8" Visibility="Collapsed">
+            <fluent:FWSettingsCard x:Name="ImageSourceCard" Header="图片来源" Description="选择本地图片文件作为壁纸。支持 PNG、JPG、BMP、WEBP 格式。">
+                <fluent:FWSettingsCard.Content>
+                    <Border Width="440">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <fluent:FWTextBox x:Name="ImageSourceTextBox" Grid.Column="0" MinHeight="34" TextWrapping="NoWrap" Width="320" />
+                            <fluent:FWButton x:Name="ImageBrowseButton" Grid.Column="1" Width="36" Height="34" Click="ImageBrowseButton_Click" />
+                            <fluent:FWButton x:Name="ImageBundledButton" Grid.Column="2" Width="36" Height="34" Click="ImageBundledButton_Click" />
+                        </Grid>
+                    </Border>
+                </fluent:FWSettingsCard.Content>
+            </fluent:FWSettingsCard>
+            
+            <fluent:FWSettingsCard x:Name="ImagePlacementCard" Header="填充方式" Description="调整图片在桌面上的显示方式。">
+                <fluent:FWSettingsCard.Content>
+                    <fluent:FWComboBox x:Name="ImagePlacementCombo" Width="200" MinHeight="34">
+                        <fluent:FWComboBoxItem Content="填充" />
+                        <fluent:FWComboBoxItem Content="适应" />
+                        <fluent:FWComboBoxItem Content="拉伸" />
+                        <fluent:FWComboBoxItem Content="居中" />
+                        <fluent:FWComboBoxItem Content="平铺" />
+                    </fluent:FWComboBox>
+                </fluent:FWSettingsCard.Content>
+            </fluent:FWSettingsCard>
+        </fluent:FWStackPanel>
+
+        <!-- Video Settings -->
+        <fluent:FWStackPanel x:Name="VideoSettingsPanel" Orientation="Vertical" Spacing="8" Visibility="Collapsed">
+            <fluent:FWSettingsCard x:Name="VideoSourceCard" Header="视频来源" Description="选择本地视频文件作为壁纸。支持 MP4、MOV、MKV、WEBM、AVI 格式。">
+                <fluent:FWSettingsCard.Content>
+                    <Border Width="440">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <fluent:FWTextBox x:Name="VideoSourceTextBox" Grid.Column="0" MinHeight="34" TextWrapping="NoWrap" PlaceholderText="D:\Videos\wallpaper.mp4" Width="320" />
+                            <fluent:FWButton x:Name="VideoBrowseButton" Grid.Column="1" Width="36" Height="34" Click="VideoBrowseButton_Click" />
+                        </Grid>
+                    </Border>
+                </fluent:FWSettingsCard.Content>
+            </fluent:FWSettingsCard>
+
+            <fluent:FWSettingsCard x:Name="VideoMuteCard" Header="静音播放" Description="视频壁纸默认静音循环播放。关闭后可听到视频原声。">
+                <fluent:FWSettingsCard.Content>
+                    <fluent:FWToggleSwitch x:Name="VideoMutedSwitch" />
+                </fluent:FWSettingsCard.Content>
+            </fluent:FWSettingsCard>
+        </fluent:FWStackPanel>
+
+        <!-- HTML Settings -->
+        <fluent:FWStackPanel x:Name="HtmlSettingsPanel" Orientation="Vertical" Spacing="8" Visibility="Collapsed">
+            <fluent:FWSettingsCard x:Name="HtmlSourceCard" Header="页面来源" Description="输入网页地址或选择本地 HTML 文件。支持 http、https 协议。">
+                <fluent:FWSettingsCard.Content>
+                    <Border Width="440">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <fluent:FWTextBox x:Name="HtmlSourceTextBox" Grid.Column="0" MinHeight="34" TextWrapping="NoWrap" PlaceholderText="https://example.com/dashboard.html" Width="320" />
+                            <fluent:FWButton x:Name="HtmlBrowseButton" Grid.Column="1" Width="36" Height="34" Click="HtmlBrowseButton_Click" />
+                        </Grid>
+                    </Border>
+                </fluent:FWSettingsCard.Content>
+            </fluent:FWSettingsCard>
+        </fluent:FWStackPanel>
+
+        <!-- Actions Row -->
+        <Grid ColumnSpacing="12" Margin="0,16,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            
+            <fluent:FWTextBlock x:Name="StatusText" Grid.Column="0" Foreground="#CCFFFFFF" TextWrapping="Wrap" VerticalAlignment="Center" />
+            
+            <fluent:FWButton x:Name="ApplyButton" Grid.Column="1" MinWidth="96" MinHeight="36" Click="ApplyButton_Click" />
+        </Grid>
+    </fluent:FWStackPanel>
+</UserControl>

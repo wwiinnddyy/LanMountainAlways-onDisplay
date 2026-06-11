@@ -1,0 +1,25 @@
+<UserControl xmlns="http://schemas.jalium.ui/2024"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:fluent="https://jalium.dev/fluent"
+             x:Class="LanMountainAlwaysOnDisplay.Views.AboutSettingsPage">
+    <fluent:FWStackPanel Orientation="Vertical" Spacing="8">
+        <!-- Header -->
+        <fluent:FWStackPanel Orientation="Vertical" Spacing="6" Margin="0,0,0,16">
+            <fluent:FWTextBlock Text="关于" FontSize="28" FontWeight="SemiBold" />
+            <fluent:FWTextBlock Text="LanMountain Always-on Display 是阑山桌面的独立组件程序。" FontSize="14" Foreground="#CCFFFFFF" TextWrapping="Wrap" />
+        </fluent:FWStackPanel>
+
+        <!-- Cards -->
+        <fluent:FWSettingsCard x:Name="VersionCard" Header="版本" Description="独立组件预览版。">
+            <fluent:FWSettingsCard.Content>
+                <fluent:FWTextBlock Text="0.1.0-preview.1" Foreground="#CCFFFFFF" />
+            </fluent:FWSettingsCard.Content>
+        </fluent:FWSettingsCard>
+
+        <fluent:FWSettingsCard x:Name="CommunicationCard" Header="桌面通信" Description="DotnetCampus IPC 引用已保留，后续迭代再启动通信行为。">
+            <fluent:FWSettingsCard.Content>
+                <fluent:FWTextBlock Text="稍后" Foreground="#CCFFFFFF" />
+            </fluent:FWSettingsCard.Content>
+        </fluent:FWSettingsCard>
+    </fluent:FWStackPanel>
+</UserControl>
