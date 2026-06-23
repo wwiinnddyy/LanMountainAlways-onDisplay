@@ -23,34 +23,34 @@ jobs:
 
     steps:
       - name: Checkout Always-onDisplay
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: LanMountainAlways-onDisplay
           fetch-depth: 0
 
       - name: Checkout FluentJalium
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: wwiinnddyy/FluentJalium
           path: FluentJalium
           fetch-depth: 0
 
       - name: Checkout Jalium.UI
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: VeryJokerJal/Jalium.UI
           path: Jalium.UI
           fetch-depth: 0
 
       - name: Checkout LanMountainDesktop contracts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: wwiinnddyy/LanMountainDesktop
           path: LanMountainDesktop
           fetch-depth: 0
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
           dotnet-quality: preview
@@ -87,7 +87,7 @@ jobs:
           /p:LanMountainDesktopSourceRoot="${{ github.workspace }}\LanMountainDesktop\"
 
       - name: Upload app artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: always-on-display-${{ matrix.configuration }}
           path: LanMountainAlways-onDisplay/src/LanMountainAlwaysOnDisplay/bin/${{ matrix.configuration }}/
